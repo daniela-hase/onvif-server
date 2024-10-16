@@ -135,16 +135,65 @@ docker run --rm -it --entrypoint /bin/sh ghcr.io/daniela-hase/onvif-server:lates
 node main.js --create-config
 ```
 
-# Other Usages
+# Wrapping an RTSP Stream
 This tool can also be used to create Onvif devices from regular RTSP streams by creating the configuration manually.
 
+**RTSP Example:**
+Assume you have this RTSP stream:
+```txt
+rtsp://192.168.1.32:554/cam/stream
+       \__________/ \_/ \________/
+            |       Port    |
+         Hostname           |
+                          Path
+```
+If your RTSP url does not have a port it uses the default port 554.
+
+Next you need to figure out the resolution and framerate for the stream. If you don't know them, you can use VLC to open the RTSP stream and check the Media Information (Window -> Media Information) for the "Video Resolution" and "Frame rate" from the "Codec Details" page, and the "Stream bitrate" from the "Statistics" page. The bitrate will fluctuate quite a bit most likely, so just pick a number that is close to it (e.g. 1024, 2048, 4096 ..).
+
+Let's assume the resolution is 1920x1080 with 30 fps and a bitrate of 1024 kb/s, then the `config.yaml` for that stream would look as follows:
+
+```yaml
+onvif:
+  - mac: a2:a2:a2:a2:a2:a1                        # The MAC address for the server to run on
+    ports:
+      server: 8081                                # The port for the server to run on
+      rtsp: 8554                                  # The port for the stream passthrough, leave this at 8554
+    name: MyRTSPStream                            # A user define name
+    uuid: 1714a629-ebe5-4bb8-a430-c18ffd8fa5f6    # A randomly chosen UUID (see below)
+    highQuality:
+      rtsp: /cam/stream                           # The RTSP Path
+      width: 1920                                 # The Video Width
+      height: 1080                                # The Video Height
+      framerate: 12                               # The Video Framerate/FPS
+      bitrate: 2048                               # The Video Bitrate in kb/s
+      quality: 4                                  # Quality, leave this as 4 for the high quality stream.
+    lowQuality:
+      rtsp: /cam/stream                           # The RTSP Path
+      width: 1920                                 # The Video Width
+      height: 1080                                # The Video Height
+      framerate: 12                               # The Video Framerate/FPS
+      bitrate: 2048                               # The Video Bitrate in kb/s
+      quality: 1                                  # Quality, leave this as 1 for the low quality stream.
+    target:
+      hostname: 192.168.1.32                      # The Hostname of the RTSP stream
+      ports:
+        rtsp: 554                                 # The Port of the RTSP stream
+```
+
+You can either randomly change a few numbers of the UUID, or use a UUIDv4 generator[^3].
+
+If you have a separate low-quality RTSP stream available, fill in the information for the `lowQuality` section above. Otherwise just copy the `highQualtiy` settings.
+
+> [!NOTE]
+> Since we don't provide a snapshot url you will onyl see the Onvif logo in certain places in Unifi Protect where it does not show the livestream.
 
 # Troubleshooting
 
 - **All cameras show the same video stream in Unifi Protect**
 
 Unifi Protect identifies cameras by their MAC address - if multiple cameras have the same MAC address they will be treated as the same.
-It is possible your system is configured for all virtual network interfaces to report the same MAC address, to prevent this run these commands[^3]:
+It is possible your system is configured for all virtual network interfaces to report the same MAC address, to prevent this run these commands[^4]:
 ```bash
 sudo sysctl -w net.ipv4.conf.all.arp_ignore=0
 sudo sysctl -w net.ipv4.conf.all.arp_announce=0
@@ -163,4 +212,5 @@ Unifi Protect also seems to only support h264 video streams at the moment. So en
 
 [^1]: [What is MacVLAN?](https://ipwithease.com/what-is-macvlan)
 [^2]: [Wikipedia: Locally Administered MAC Address](https://en.wikipedia.org/wiki/MAC_address#:~:text=Locally%20administered%20addresses%20are%20distinguished,how%20the%20address%20is%20administered.)
-[^3]: [Virtual Interfaces with different MAC addresses](https://serverfault.com/questions/682311/virtual-interfaces-with-different-mac-addresses)
+[^3]: [UUIDv4 Generator](https://www.uuidgenerator.net/)
+[^4]: [Virtual Interfaces with different MAC addresses](https://serverfault.com/questions/682311/virtual-interfaces-with-different-mac-addresses)

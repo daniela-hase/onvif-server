@@ -78,46 +78,51 @@ class OnvifServer {
                     },
                     SessionTimeout: 'PT1000S'
                 }
-            },
-            {
-                Name: 'SubStream',
-                attributes: {
-                    token: 'sub_stream'
-                },
-                VideoSourceConfiguration: {
-                    Name: 'VideoSource',
-                    UseCount: 2,
-                    attributes: {
-                        token: 'video_src_config_token'
-                    },
-                    SourceToken: 'video_src_token',
-                    Bounds: { attributes: { x: 0, y: 0, width: this.config.highQuality.width, height: this.config.highQuality.height } }
-                },
-                VideoEncoderConfiguration: {
-                    attributes: {
-                        token: 'encoder_lq_config_token'
-                    },
-                    Name: 'CardinalLqCameraConfiguration',
-                    UseCount: 1,
-                    Encoding: 'H264',
-                    Resolution: {
-                        Width: this.config.lowQuality.width,
-                        Height: this.config.lowQuality.height
-                    },
-                    Quality: this.config.lowQuality.quality,
-                    RateControl: {
-                        FrameRateLimit: this.config.lowQuality.framerate,
-                        EncodingInterval: 1,
-                        BitrateLimit: this.config.lowQuality.bitrate
-                    },
-                    H264: {
-                        GovLength: this.config.lowQuality.framerate,
-                        H264Profile: 'Main'
-                    },
-                    SessionTimeout: 'PT1000S'
-                }
             }
         ];
+
+        if (this.config.lowQuality) {
+            this.profiles.push(
+                {
+                    Name: 'SubStream',
+                    attributes: {
+                        token: 'sub_stream'
+                    },
+                    VideoSourceConfiguration: {
+                        Name: 'VideoSource',
+                        UseCount: 2,
+                        attributes: {
+                            token: 'video_src_config_token'
+                        },
+                        SourceToken: 'video_src_token',
+                        Bounds: { attributes: { x: 0, y: 0, width: this.config.highQuality.width, height: this.config.highQuality.height } }
+                    },
+                    VideoEncoderConfiguration: {
+                        attributes: {
+                            token: 'encoder_lq_config_token'
+                        },
+                        Name: 'CardinalLqCameraConfiguration',
+                        UseCount: 1,
+                        Encoding: 'H264',
+                        Resolution: {
+                            Width: this.config.lowQuality.width,
+                            Height: this.config.lowQuality.height
+                        },
+                        Quality: this.config.lowQuality.quality,
+                        RateControl: {
+                            FrameRateLimit: this.config.lowQuality.framerate,
+                            EncodingInterval: 1,
+                            BitrateLimit: this.config.lowQuality.bitrate
+                        },
+                        H264: {
+                            GovLength: this.config.lowQuality.framerate,
+                            H264Profile: 'Main'
+                        },
+                        SessionTimeout: 'PT1000S'
+                    }
+                }
+            );
+        }
         
         this.onvif = {
             DeviceService: {
@@ -291,7 +296,7 @@ class OnvifServer {
         
                     GetSnapshotUri: (args) => {
                         let uri = `http://${this.config.hostname}:${this.config.ports.server}/snapshot.png`;
-                        if (args.ProfileToken == 'sub_stream' && this.config.lowQuality.snapshot)
+                        if (args.ProfileToken == 'sub_stream' && this.config.lowQuality && this.config.lowQuality.snapshot)
                             uri = `http://${this.config.hostname}:${this.config.ports.snapshot}${this.config.lowQuality.snapshot}`;
                         else if (this.config.highQuality.snapshot)
                             uri = `http://${this.config.hostname}:${this.config.ports.snapshot}${this.config.highQuality.snapshot}`;
@@ -308,7 +313,7 @@ class OnvifServer {
                 
                     GetStreamUri: (args) => {
                         let path = this.config.highQuality.rtsp;
-                        if (args.ProfileToken == 'sub_stream')
+                        if (args.ProfileToken == 'sub_stream' && this.config.lowQuality)
                             path = this.config.lowQuality.rtsp;
 
                         return {
