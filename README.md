@@ -166,14 +166,14 @@ onvif:
       width: 1920                                 # The Video Width
       height: 1080                                # The Video Height
       framerate: 30                               # The Video Framerate/FPS
-      bitrate: 2048                               # The Video Bitrate in kb/s
+      bitrate: 1024                               # The Video Bitrate in kb/s
       quality: 4                                  # Quality, leave this as 4 for the high quality stream.
     lowQuality:
       rtsp: /cam/stream                           # The RTSP Path
       width: 1920                                 # The Video Width
       height: 1080                                # The Video Height
       framerate: 30                               # The Video Framerate/FPS
-      bitrate: 2048                               # The Video Bitrate in kb/s
+      bitrate: 1024                               # The Video Bitrate in kb/s
       quality: 1                                  # Quality, leave this as 1 for the low quality stream.
     target:
       hostname: 192.168.1.32                      # The Hostname of the RTSP stream
