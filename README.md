@@ -142,14 +142,14 @@ This tool can also be used to create Onvif devices from regular RTSP streams by 
 Assume you have this RTSP stream:
 ```txt
 rtsp://192.168.1.32:554/cam/stream
-       \__________/ \_/ \________/
+       \__________/ \_/\_________/
             |       Port    |
          Hostname           |
                           Path
 ```
 If your RTSP url does not have a port it uses the default port 554.
 
-Next you need to figure out the resolution and framerate for the stream. If you don't know them, you can use VLC to open the RTSP stream and check the Media Information (Window -> Media Information) for the "Video Resolution" and "Frame rate" from the "Codec Details" page, and the "Stream bitrate" from the "Statistics" page. The bitrate will fluctuate quite a bit most likely, so just pick a number that is close to it (e.g. 1024, 2048, 4096 ..).
+Next you need to figure out the resolution and framerate for the stream. If you don't know them, you can use VLC to open the RTSP stream and check the _Media Information_ (Window -> Media Information) for the _"Video Resolution"_ and _"Frame rate"_ on the _"Codec Details"_ page, and the _"Stream bitrate"_ on the _"Statistics"_ page. The bitrate will fluctuate quite a bit most likely, so just pick a number that is close to it (e.g. 1024, 2048, 4096 ..).
 
 Let's assume the resolution is 1920x1080 with 30 fps and a bitrate of 1024 kb/s, then the `config.yaml` for that stream would look as follows:
 
@@ -165,14 +165,14 @@ onvif:
       rtsp: /cam/stream                           # The RTSP Path
       width: 1920                                 # The Video Width
       height: 1080                                # The Video Height
-      framerate: 12                               # The Video Framerate/FPS
+      framerate: 30                               # The Video Framerate/FPS
       bitrate: 2048                               # The Video Bitrate in kb/s
       quality: 4                                  # Quality, leave this as 4 for the high quality stream.
     lowQuality:
       rtsp: /cam/stream                           # The RTSP Path
       width: 1920                                 # The Video Width
       height: 1080                                # The Video Height
-      framerate: 12                               # The Video Framerate/FPS
+      framerate: 30                               # The Video Framerate/FPS
       bitrate: 2048                               # The Video Bitrate in kb/s
       quality: 1                                  # Quality, leave this as 1 for the low quality stream.
     target:
