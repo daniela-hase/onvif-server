@@ -198,8 +198,8 @@ If you have a separate low-quality RTSP stream available, fill in the informatio
 Unifi Protect identifies cameras by their MAC address - if multiple cameras have the same MAC address they will be treated as the same.
 It is possible your system is configured for all virtual network interfaces to report the same MAC address, to prevent this run these commands[^4]:
 ```bash
-sudo sysctl -w net.ipv4.conf.all.arp_ignore=0
-sudo sysctl -w net.ipv4.conf.all.arp_announce=0
+sudo sysctl -w net.ipv4.conf.all.arp_ignore=1
+sudo sysctl -w net.ipv4.conf.all.arp_announce=2
 ```
 
 - **Error: Wsse authorized time check failed.**
