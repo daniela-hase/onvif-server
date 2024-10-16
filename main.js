@@ -84,21 +84,26 @@ if (args) {
 
         for (let onvifConfig of config.onvif) {
             let server = onvifServer.createServer(onvifConfig);
-            console.log(`Starting virtual onvif server for ${onvifConfig.name} on ${server.getHostname()}:${onvifConfig.ports.server} ...`);
-            server.startServer();
-            server.startDiscovery();
-            if (args.debug)
-                server.enableDebugOutput();
-            console.log('  Started!');
-            console.log('');
+            if (server.getHostname()) {
+                console.log(`Starting virtual onvif server for ${onvifConfig.name} on ${server.getHostname()}:${onvifConfig.ports.server} ...`);
+                server.startServer();
+                server.startDiscovery();
+                if (args.debug)
+                    server.enableDebugOutput();
+                console.log('  Started!');
+                console.log('');
 
-            if (!proxies[onvifConfig.target.hostname])
-                proxies[onvifConfig.target.hostname] = {}
-            
-            if (onvifConfig.ports.rtsp && onvifConfig.target.ports.rtsp)
-                proxies[onvifConfig.target.hostname][onvifConfig.ports.rtsp] = onvifConfig.target.ports.rtsp;
-            if (onvifConfig.ports.snapshot && onvifConfig.target.ports.snapshot)
-                proxies[onvifConfig.target.hostname][onvifConfig.ports.snapshot] = onvifConfig.target.ports.snapshot;
+                if (!proxies[onvifConfig.target.hostname])
+                    proxies[onvifConfig.target.hostname] = {}
+                
+                if (onvifConfig.ports.rtsp && onvifConfig.target.ports.rtsp)
+                    proxies[onvifConfig.target.hostname][onvifConfig.ports.rtsp] = onvifConfig.target.ports.rtsp;
+                if (onvifConfig.ports.snapshot && onvifConfig.target.ports.snapshot)
+                    proxies[onvifConfig.target.hostname][onvifConfig.ports.snapshot] = onvifConfig.target.ports.snapshot;
+            } else {
+                console.log(`Failed to find IP address for MAC address ${onvifConfig.mac}`)
+                return -1;
+            }
         }
         
         for (let destinationAddress in proxies) {
