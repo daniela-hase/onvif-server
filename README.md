@@ -118,6 +118,23 @@ node main.js ./config.yaml
 Your Virtual Onvif Devices should now automatically show up for adoption in Unifi Protect as "Onvif Cardinal" device. The username and password are the same as on the real Onvif device.
 
 
+# Docker
+A prebuilt docker image can be found in the packages section of this repository.
+All you need to do is to mount your `config.yaml` to `/onvif.yaml` inside the container.
+
+Example of running the image in a temporary container:
+```bash
+docker run --rm -it -v /path/to/my/config.yaml:/onvif.yaml ghcr.io/daniela-hase/onvif-server:latest
+```
+
+To create the configuration from inside the docker container you can change the entrypoint of the container to `/bin/sh`:
+```bash
+docker run --rm -it --entrypoint /bin/sh ghcr.io/daniela-hase/onvif-server:latest
+
+# Once inside the container, run:
+node main.js --create-config
+```
+
 # Other Usages
 This tool can also be used to create Onvif devices from regular RTSP streams by creating the configuration manually.
 
