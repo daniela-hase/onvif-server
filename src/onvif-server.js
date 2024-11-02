@@ -6,6 +6,7 @@ const uuid = require('node-uuid');
 const url = require('url');
 const fs = require('fs');
 const os = require('os');
+const logger = require('simple-node-logger').createSimpleLogger();
 
 Date.prototype.stdTimezoneOffset = function() {
     let jan = new Date(this.getFullYear(), 0, 1);
@@ -17,20 +18,29 @@ Date.prototype.isDstObserved = function() {
     return this.getTimezoneOffset() < this.stdTimezoneOffset();
 }
 
-function getHostname(macAddress) {
+function getIp4FromMac(macAddress) {
     let networkInterfaces = os.networkInterfaces();
-    for (let interface in networkInterfaces)
-        for (let network of networkInterfaces[interface])
+    for (let interface in networkInterfaces){
+     logger.trace(interface);
+        for (let network of networkInterfaces[interface]){
+            logger.trace(network);
             if (network.family == 'IPv4' && network.mac.toLowerCase() == macAddress.toLowerCase())
                 return network.address;
+        }
+    }
     return null;
 }
 
 class OnvifServer {
-    constructor(config) {
+    constructor(config, isDebug) {
         this.config = config;
+
+        if (isDebug === true){
+            logger.setLevel('trace');
+        }
+
         if (!this.config.hostname)
-            this.config.hostname = getHostname(this.config.mac);
+            this.config.hostname = getIp4FromMac(this.config.mac);
 
         this.videoSource = {
             attributes: {
@@ -364,11 +374,11 @@ class OnvifServer {
 
     enableDebugOutput() {
         this.deviceService.on('request', (request, methodName) => {
-            console.log('DeviceService: ' + methodName);
+            logger.debug('DeviceService: ' + methodName);
         });
         
         this.mediaService.on('request', (request, methodName) => {
-            console.log('MediaService: ' + methodName);
+            logger.debug('MediaService: ' + methodName);
         });
     }
 
@@ -435,9 +445,9 @@ class OnvifServer {
     }
 };
 
-function createServer(config) {
-    return new OnvifServer(config);
+function createServer(config, isDebug) {
+    return new OnvifServer(config, isDebug);
 }
 
 exports.createServer = createServer;
-exports.getHostname = getHostname;
+exports.getHostname = getIp4FromMac;

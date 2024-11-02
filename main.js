@@ -7,6 +7,7 @@ const readline = require('readline');
 const stream = require('stream');
 const yaml = require('yaml');
 const fs = require('fs');
+const logger = require('simple-node-logger').createSimpleLogger();
 
 const parser = new argparse.ArgumentParser({
     description: 'Virtual Onvif Server'
@@ -21,8 +22,12 @@ let args = parser.parse_args();
 
 if (args) {
     if (args.version) {
-        console.log('Version: ' + package.version);
+        logger.info('Version: ' + package.version);
         return;
+    }
+
+    if (args.debug){
+        logger.setLevel('trace');
     }
 
     if (args.create_config) {
@@ -46,14 +51,14 @@ if (args) {
                 mutableStdout.muted = true;
                 process.stdout.write('Onvif Password: ');
                 rl.question('', (password) => {
-                    console.log('Generating config ...');
+                    logger.info('Generating config ...');
                     configBuilder.createConfig(hostname, username, password).then((config) => {
                         if (config) {
-                            console.log('# ==================== CONFIG START ====================');
-                            console.log(yaml.stringify(config));
-                            console.log('# ===================== CONFIG END =====================');
+                            logger.info('# ==================== CONFIG START ====================');
+                            logger.info(yaml.stringify(config));
+                            logger.info('# ===================== CONFIG END =====================');
                         } else
-                            console.log('Failed to create config!');
+                            logger.info('Failed to create config!');
                     });
                     rl.close();
                 });
@@ -66,7 +71,7 @@ if (args) {
             configData = fs.readFileSync(args.config, 'utf8');
         } catch (error) {
             if (error.code === 'ENOENT') {
-                console.log('File not found: ' + args.config);
+                logger.info('File not found: ' + args.config);
                 return -1;
             }
             throw error;
@@ -76,22 +81,22 @@ if (args) {
         try {
             config = yaml.parse(configData);
         } catch (error) {
-            console.log('Failed to read config, invalid yaml syntax.')
+            logger.info('Failed to read config, invalid yaml syntax.')
             return -1;
         }
 
         let proxies = {};
 
         for (let onvifConfig of config.onvif) {
-            let server = onvifServer.createServer(onvifConfig);
+            let server = onvifServer.createServer(onvifConfig, args.debug);
             if (server.getHostname()) {
-                console.log(`Starting virtual onvif server for ${onvifConfig.name} on ${server.getHostname()}:${onvifConfig.ports.server} ...`);
+                logger.info(`Starting virtual onvif server for ${onvifConfig.name} on ${server.getHostname()}:${onvifConfig.ports.server} ...`);
                 server.startServer();
                 server.startDiscovery();
                 if (args.debug)
                     server.enableDebugOutput();
-                console.log('  Started!');
-                console.log('');
+                logger.info('  Started!');
+                logger.info('');
 
                 if (!proxies[onvifConfig.target.hostname])
                     proxies[onvifConfig.target.hostname] = {}
@@ -101,22 +106,22 @@ if (args) {
                 if (onvifConfig.ports.snapshot && onvifConfig.target.ports.snapshot)
                     proxies[onvifConfig.target.hostname][onvifConfig.ports.snapshot] = onvifConfig.target.ports.snapshot;
             } else {
-                console.log(`Failed to find IP address for MAC address ${onvifConfig.mac}`)
+                logger.error(`Failed to find IP address for MAC address ${onvifConfig.mac}`)
                 return -1;
             }
         }
         
         for (let destinationAddress in proxies) {
             for (let sourcePort in proxies[destinationAddress]) {
-                console.log(`Starting tcp proxy from port ${sourcePort} to ${destinationAddress}:${proxies[destinationAddress][sourcePort]} ...`);
+                logger.info(`Starting tcp proxy from port ${sourcePort} to ${destinationAddress}:${proxies[destinationAddress][sourcePort]} ...`);
                 tcpProxy.createProxy(sourcePort, destinationAddress, proxies[destinationAddress][sourcePort]);
-                console.log('  Started!');
-                console.log('');
+                logger.info('  Started!');
+                logger.info('');
             }
         }
 
     } else {
-        console.log('Please specifiy a config filename!');
+        logger.info('Please specifiy a config filename!');
         return -1;
     }
 
