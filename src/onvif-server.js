@@ -278,7 +278,7 @@ class OnvifServer {
                     GetDeviceInformation: (args) => {
                         return {
                             Manufacturer: 'Onvif',
-                            Model: 'Cardinal',
+                            Model: `${this.config.name}`,
                             FirmwareVersion: '1.0.0',
                             SerialNumber: `${this.config.name.replace(' ', '_')}-0000`,
                             HardwareId: `${this.config.name.replace(' ', '_')}-1001`
@@ -421,7 +421,7 @@ class OnvifServer {
                                             onvif://www.onvif.org/type/video_encoder
                                             onvif://www.onvif.org/type/ptz
                                             onvif://www.onvif.org/hardware/Onvif
-                                            onvif://www.onvif.org/name/Cardinal
+                                            onvif://www.onvif.org/name/${this.config.name}
                                             onvif://www.onvif.org/location/
                                         </d:Scopes>
                                         <d:XAddrs>http://${this.config.hostname}:${this.config.ports.server}/onvif/device_service</d:XAddrs>
