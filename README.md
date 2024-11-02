@@ -115,7 +115,7 @@ Finally, to start the virtual Onvif devices run:
 node main.js ./config.yaml
 ```
 
-Your Virtual Onvif Devices should now automatically show up for adoption in Unifi Protect as "Onvif Cardinal" device. The username and password are the same as on the real Onvif device.
+Your Virtual Onvif Devices should now automatically show up for adoption in Unifi Protect as the name specified in the config. The username and password are the same as on the real Onvif device.
 
 
 # Docker
