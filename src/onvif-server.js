@@ -395,6 +395,9 @@ class OnvifServer {
                 } catch (err) {
                     probeType = '';
                 }
+
+                if (typeof probeType === 'object')
+                    probeType = probeType._;
             
                 if (probeType === '' || probeType.indexOf('NetworkVideoTransmitter') > -1) {
                     let response = 
