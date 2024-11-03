@@ -38,16 +38,9 @@ All you need to do is to mount your `config.yaml` to `/onvif.yaml` inside the co
 
 Example of running the image in a temporary container:
 ```bash
-docker run --rm -it -v /path/to/my/config.yaml:/onvif.yaml ghcr.io/daniela-hase/onvif-server:latest
+docker run --rm -it -v /path/to/my/config.yaml:/onvif.yaml kulasolutions/rtsp-to-onvif:latest
 ```
 
-To create the configuration from inside the docker container you can change the entrypoint of the container to `/bin/sh`:
-```bash
-docker run --rm -it --entrypoint /bin/sh ghcr.io/daniela-hase/onvif-server:latest
-
-# Once inside the container, run:
-node main.js --create-config
-```
 
 ## Wrapping an RTSP Stream
 This tool is  used to create Onvif devices from regular RTSP streams by creating the following configuration
