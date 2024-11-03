@@ -11,7 +11,7 @@ onvif:
       snapshot: /ISAPI/Streaming/Channels/101/picture
       width: 2048
       height: 1536
-      framerate: 10
+      framerate: 15
       bitrate: 3072
       quality: 4
     target:
