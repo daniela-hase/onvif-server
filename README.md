@@ -18,6 +18,9 @@ Unifi Protect seems to only support h264 video streams at the moment. So ensure 
 
 At the time of writing this, version 5.0.34 of Unifi Protect unfortunately has some limitations and does only support cameras with a single high- and low quality stream. Unfortunately video recorders that output multiple cameras (e.g. Hikvision / Dahua XVR) or cameras with multiple internal cameras are not properly supported.
 
+
+Your Virtual Onvif Devices should now automatically show up for adoption in Unifi Protect as the name specified in the config. The username and password are the same as on the real Onvif device.
+=======
 # Roadmap
 - Make it work in docker
   - Simplify the newtwork configuration
