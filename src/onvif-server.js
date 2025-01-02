@@ -17,7 +17,7 @@ Date.prototype.isDstObserved = function() {
     return this.getTimezoneOffset() < this.stdTimezoneOffset();
 }
 
-function getHostname(macAddress) {
+function getIpAddressFromMac(macAddress) {
     let networkInterfaces = os.networkInterfaces();
     for (let interface in networkInterfaces)
         for (let network of networkInterfaces[interface])
@@ -27,10 +27,12 @@ function getHostname(macAddress) {
 }
 
 class OnvifServer {
-    constructor(config) {
+    constructor(config, logger) {
         this.config = config;
+        this.logger = logger;
+
         if (!this.config.hostname)
-            this.config.hostname = getHostname(this.config.mac);
+            this.config.hostname = getIpAddressFromMac(this.config.mac);
 
         this.videoSource = {
             attributes: {
@@ -364,11 +366,11 @@ class OnvifServer {
 
     enableDebugOutput() {
         this.deviceService.on('request', (request, methodName) => {
-            console.log('DeviceService: ' + methodName);
+            this.logger.debug('DeviceService: ' + methodName);
         });
         
         this.mediaService.on('request', (request, methodName) => {
-            console.log('MediaService: ' + methodName);
+            this.logger.debug('MediaService: ' + methodName);
         });
     }
 
@@ -443,4 +445,3 @@ function createServer(config) {
 }
 
 exports.createServer = createServer;
-exports.getHostname = getHostname;

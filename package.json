@@ -14,6 +14,7 @@
     "node-tcp-proxy": "0.0.28",
     "node-uuid": "1.4.8",
     "argparse": "2.0.1",
-    "yaml": "2.5.1"
+    "yaml": "2.5.1",
+    "simple-node-logger": "^21.8.12"
   }
 }
