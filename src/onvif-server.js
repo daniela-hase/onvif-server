@@ -391,6 +391,9 @@ class OnvifServer {
                 if (typeof probeType === 'object')
                     probeType = probeType._;
             
+                if (typeof probeUuid === 'object')
+                    probeUuid = probeUuid._;
+
                 if (probeType === '' || probeType.indexOf('NetworkVideoTransmitter') > -1) {
                     let response = 
                        `<?xml version="1.0" encoding="UTF-8"?>
