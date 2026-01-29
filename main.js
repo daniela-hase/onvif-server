@@ -86,6 +86,8 @@ if (args) {
         }
 
         let proxies = {};
+        let proxyServers = [];
+        let servers = [];
 
         for (let onvifConfig of config.onvif) {
             let server = onvifServer.createServer(onvifConfig, logger);
@@ -95,12 +97,13 @@ if (args) {
                 server.startDiscovery();
                 if (args.debug)
                     server.enableDebugOutput();
+                servers.push(server);
                 logger.info('  Started!');
                 logger.info('');
 
                 if (!proxies[onvifConfig.target.hostname])
                     proxies[onvifConfig.target.hostname] = {}
-                
+
                 if (onvifConfig.ports.rtsp && onvifConfig.target.ports.rtsp)
                     proxies[onvifConfig.target.hostname][onvifConfig.ports.rtsp] = onvifConfig.target.ports.rtsp;
                 if (onvifConfig.ports.snapshot && onvifConfig.target.ports.snapshot)
@@ -114,11 +117,37 @@ if (args) {
         for (let destinationAddress in proxies) {
             for (let sourcePort in proxies[destinationAddress]) {
                 logger.info(`Starting tcp proxy from port ${sourcePort} to ${destinationAddress}:${proxies[destinationAddress][sourcePort]} ...`);
-                tcpProxy.createProxy(sourcePort, destinationAddress, proxies[destinationAddress][sourcePort]);
+                const proxyServer = tcpProxy.createProxy(sourcePort, destinationAddress, proxies[destinationAddress][sourcePort]);
+                proxyServers.push(proxyServer);
                 logger.info('  Started!');
                 logger.info('');
             }
         }
+
+        // Graceful shutdown on SIGTERM/SIGINT (important for Docker)
+        const gracefulShutdown = async (signal) => {
+            logger.info(`Received ${signal}, shutting down gracefully...`);
+
+            // Shutdown all TCP proxies
+            logger.info('Closing TCP proxies...');
+            for (const proxy of proxyServers) {
+                try {
+                    proxy.end();
+                } catch (err) {
+                    logger.error('Error closing TCP proxy: ' + err.message);
+                }
+            }
+
+            // Shutdown all ONVIF servers
+            const shutdownPromises = servers.map(server => server.shutdown());
+            await Promise.all(shutdownPromises);
+
+            logger.info('All servers shut down successfully');
+            process.exit(0);
+        };
+
+        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
     } else {
         logger.error('Please specifiy a config filename!');

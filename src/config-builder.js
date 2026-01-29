@@ -14,20 +14,22 @@ async function createConfig(hostname, username, password) {
         hasNonce: true,
         passwordType: 'PasswordDigest'
     };
-    
+
     let client = await soap.createClientAsync('./wsdl/media_service.wsdl', options);
-    client.setEndpoint(`http://${hostname}/onvif/device_service`);
-    client.setSecurity(new soap.WSSecurity(username, password, securityOptions));
 
-    let hostport = 80;
-    if (hostname.indexOf(':') > -1) {
-        hostport = parseInt(hostname.substr(hostname.indexOf(':') + 1));
-        hostname = hostname.substr(0, hostname.indexOf(':'));
-    }
-
-    let cameras = {};
-
+    // Ensure client is cleaned up on error or completion
     try {
+        client.setEndpoint(`http://${hostname}/onvif/device_service`);
+        client.setSecurity(new soap.WSSecurity(username, password, securityOptions));
+
+        let hostport = 80;
+        if (hostname.indexOf(':') > -1) {
+            hostport = parseInt(hostname.substr(hostname.indexOf(':') + 1));
+            hostname = hostname.substr(0, hostname.indexOf(':'));
+        }
+
+        let cameras = {};
+
         let profiles = await client.GetProfilesAsync({});
         for (let profile of profiles[0].Profiles) {
             let videoSource = profile.VideoSourceConfiguration.SourceToken;
@@ -53,18 +55,13 @@ async function createConfig(hostname, username, password) {
             profile.snapshotUri = snapshotUri[0].MediaUri.Uri;
             cameras[videoSource].push(profile);
         }
-    } catch (err) {
-        if (err.root && err.root.Envelope && err.root.Envelope.Body && err.root.Envelope.Body.Fault && err.root.Envelope.Body.Fault.Reason && err.root.Envelope.Body.Fault.Reason.Text)
-            throw `Error: ${err.root.Envelope.Body.Fault.Reason.Text['$value']}`;
-        throw `Error: ${err.message}`;
-    }
 
-    let config = {
-        onvif: []
-    };
+        let config = {
+            onvif: []
+        };
 
-    let serverPort = 8081;
-    for (let camera in cameras) {
+        let serverPort = 8081;
+        for (let camera in cameras) {
         let mainStream = cameras[camera][0];
         let subStream = cameras[camera][cameras[camera].length > 1 ? 1 : 0];
 
@@ -117,16 +114,31 @@ async function createConfig(hostname, username, password) {
             }
         };
 
-        config.onvif.push(cameraConfig);
-        serverPort++;
-    }
+            config.onvif.push(cameraConfig);
+            serverPort++;
+        }
 
-    return config;
+        return config;
+    } catch (err) {
+        if (err.root && err.root.Envelope && err.root.Envelope.Body && err.root.Envelope.Body.Fault && err.root.Envelope.Body.Fault.Reason && err.root.Envelope.Body.Fault.Reason.Text)
+            throw `Error: ${err.root.Envelope.Body.Fault.Reason.Text['$value']}`;
+        throw `Error: ${err.message}`;
+    } finally {
+        // Clean up SOAP client to prevent memory leaks
+        if (client && client.httpClient) {
+            // Destroy any active HTTP agent connections
+            if (client.httpClient.agent && client.httpClient.agent.destroy) {
+                client.httpClient.agent.destroy();
+            }
+        }
+    }
 }
 
 exports.createConfig = async function(hostname, username, password) {
 
     let config;
+    let originalGetUTCHours = null;
+
     try {
         config = await createConfig(hostname, username, password);
     } catch (err) {
@@ -135,6 +147,9 @@ exports.createConfig = async function(hostname, username, password) {
             console.log('Retrying...')
 
             var utcHours = (new Date()).getUTCHours();
+
+            // Save original method before modifying prototype
+            originalGetUTCHours = Date.prototype.getUTCHours;
             Date.prototype.getUTCHours = function() {
                 return utcHours + 1;
             }
@@ -144,6 +159,11 @@ exports.createConfig = async function(hostname, username, password) {
             } catch (err) {
                 console.log(err);
             }
+        }
+    } finally {
+        // Restore original Date.prototype.getUTCHours if it was modified
+        if (originalGetUTCHours !== null) {
+            Date.prototype.getUTCHours = originalGetUTCHours;
         }
     }
 

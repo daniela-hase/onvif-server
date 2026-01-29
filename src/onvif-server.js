@@ -30,6 +30,12 @@ class OnvifServer {
     constructor(config, logger) {
         this.config = config;
         this.logger = logger;
+        this.snapshotCache = null;
+        this.debugListenersAdded = false;
+
+        // Create reusable XML parser to prevent memory leak from creating new parsers on every discovery message
+        this.xmlParserOptions = { tagNameProcessors: [xml2js['processors'].stripPrefix] };
+        this.xmlParser = new xml2js.Parser(this.xmlParserOptions);
 
         if (!this.config.hostname)
             this.config.hostname = getIpAddressFromMac(this.config.mac);
@@ -333,11 +339,30 @@ class OnvifServer {
     }
 
     listen(request, response) {
-        let action = url.parse(request.url, true).pathname;
-        if (action == '/snapshot.png') {
-            let image = fs.readFileSync('./resources/snapshot.png');
+        // Use modern URL API instead of deprecated url.parse
+        let pathname;
+        try {
+            const parsedUrl = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+            pathname = parsedUrl.pathname;
+        } catch (err) {
+            // Fallback for malformed URLs
+            pathname = request.url.split('?')[0];
+        }
+
+        if (pathname == '/snapshot.png') {
+            // Cache snapshot image to avoid repeated file I/O
+            if (!this.snapshotCache) {
+                try {
+                    this.snapshotCache = fs.readFileSync('./resources/snapshot.png');
+                } catch (err) {
+                    this.logger.error('Failed to read snapshot.png: ' + err.message);
+                    response.writeHead(500, {'Content-Type': 'text/plain'});
+                    response.end('Internal Server Error\n');
+                    return;
+                }
+            }
             response.writeHead(200, {'Content-Type': 'image/png' });
-            response.end(image, 'binary');
+            response.end(this.snapshotCache, 'binary');
         } else {
             response.writeHead(404, {'Content-Type': 'text/plain'});
             response.write('404 Not Found\n');
@@ -346,18 +371,25 @@ class OnvifServer {
     }
 
     startServer() {
-        this.server = http.createServer(this.listen);
+        // Bind 'this' context to listen method to prevent context loss
+        this.server = http.createServer(this.listen.bind(this));
+
+        // Add error handler to prevent crashes
+        this.server.on('error', (err) => {
+            this.logger.error('HTTP Server error: ' + err.message);
+        });
+
         this.server.listen(this.config.ports.server, this.config.hostname);
 
         this.deviceService = soap.listen(this.server, {
-            path: '/onvif/device_service', 
+            path: '/onvif/device_service',
             services: this.onvif,
             xml: fs.readFileSync('./wsdl/device_service.wsdl', 'utf8'),
             forceSoap12Headers: true
         });
 
         this.mediaService = soap.listen(this.server, {
-            path: '/onvif/media_service', 
+            path: '/onvif/media_service',
             services: this.onvif,
             xml: fs.readFileSync('./wsdl/media_service.wsdl', 'utf8'),
             forceSoap12Headers: true
@@ -365,10 +397,16 @@ class OnvifServer {
     }
 
     enableDebugOutput() {
+        // Prevent adding duplicate event listeners
+        if (this.debugListenersAdded) {
+            return;
+        }
+        this.debugListenersAdded = true;
+
         this.deviceService.on('request', (request, methodName) => {
             this.logger.debug('DeviceService: ' + methodName);
         });
-        
+
         this.mediaService.on('request', (request, methodName) => {
             this.logger.debug('MediaService: ' + methodName);
         });
@@ -377,9 +415,20 @@ class OnvifServer {
     startDiscovery() {
         this.discoveryMessageNo = 0;
         this.discoverySocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
-        
+
+        // Add error handler to prevent crashes
+        this.discoverySocket.on('error', (err) => {
+            this.logger.error('Discovery socket error: ' + err.message);
+        });
+
         this.discoverySocket.on('message', (message, remote) => {
-            xml2js.parseString(message.toString(), { tagNameProcessors: [xml2js['processors'].stripPrefix] }, (err, result) => {
+            // Use reusable parser instance instead of creating new one each time
+            this.xmlParser.parseString(message.toString(), (err, result) => {
+                if (err) {
+                    this.logger.error('XML parse error in discovery: ' + err.message);
+                    return;
+                }
+
                 let probeUuid = result['Envelope']['Header'][0]['MessageID'][0];
                 let probeType = '';
                 try {
@@ -390,45 +439,20 @@ class OnvifServer {
 
                 if (typeof probeType === 'object')
                     probeType = probeType._;
-            
+
                 if (typeof probeUuid === 'object')
                     probeUuid = probeUuid._;
 
                 if (probeType === '' || probeType.indexOf('NetworkVideoTransmitter') > -1) {
-                    let response = 
-                       `<?xml version="1.0" encoding="UTF-8"?>
-                        <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:dn="http://www.onvif.org/ver10/network/wsdl">
-                            <SOAP-ENV:Header>
-                                <wsa:MessageID>uuid:${uuid.v1()}</wsa:MessageID>
-                                <wsa:RelatesTo>${probeUuid}</wsa:RelatesTo>
-                                <wsa:To SOAP-ENV:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>
-                                <wsa:Action SOAP-ENV:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches</wsa:Action>
-                                <d:AppSequence SOAP-ENV:mustUnderstand="true" MessageNumber="${this.discoveryMessageNo}" InstanceId="1234567890"/>
-                            </SOAP-ENV:Header>
-                            <SOAP-ENV:Body>
-                                <d:ProbeMatches>
-                                    <d:ProbeMatch>
-                                        <wsa:EndpointReference>
-                                            <wsa:Address>urn:uuid:${this.config.uuid}</wsa:Address>
-                                        </wsa:EndpointReference>
-                                        <d:Types>dn:NetworkVideoTransmitter</d:Types>
-                                        <d:Scopes>
-                                            onvif://www.onvif.org/type/video_encoder
-                                            onvif://www.onvif.org/type/ptz
-                                            onvif://www.onvif.org/hardware/Onvif
-                                            onvif://www.onvif.org/name/Cardinal
-                                            onvif://www.onvif.org/location/
-                                        </d:Scopes>
-                                        <d:XAddrs>http://${this.config.hostname}:${this.config.ports.server}/onvif/device_service</d:XAddrs>
-                                        <d:MetadataVersion>1</d:MetadataVersion>
-                                    </d:ProbeMatch>
-                                </d:ProbeMatches>
-                            </SOAP-ENV:Body>
-                        </SOAP-ENV:Envelope>`;
-
                     this.discoveryMessageNo++;
+                    let response = this.generateDiscoveryResponse(probeUuid, this.discoveryMessageNo);
                     let responseBuffer = Buffer.from(response);
-                    return dgram.createSocket('udp4').send(responseBuffer, 0, responseBuffer.length, remote.port, remote.address);
+                    // Reuse existing socket instead of creating new ones (memory leak fix)
+                    this.discoverySocket.send(responseBuffer, 0, responseBuffer.length, remote.port, remote.address, (err) => {
+                        if (err) {
+                            this.logger.error('Discovery response send error: ' + err.message);
+                        }
+                    });
                 }
             });
         });
@@ -440,6 +464,83 @@ class OnvifServer {
 
     getHostname() {
         return this.config.hostname;
+    }
+
+    generateDiscoveryResponse(probeUuid, messageNo) {
+        // Pre-generate discovery response template to reduce string allocation overhead
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://schemas.xmlsoap.org/ws/2004/08/addressing" xmlns:d="http://schemas.xmlsoap.org/ws/2005/04/discovery" xmlns:dn="http://www.onvif.org/ver10/network/wsdl">
+    <SOAP-ENV:Header>
+        <wsa:MessageID>uuid:${uuid.v1()}</wsa:MessageID>
+        <wsa:RelatesTo>${probeUuid}</wsa:RelatesTo>
+        <wsa:To SOAP-ENV:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</wsa:To>
+        <wsa:Action SOAP-ENV:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2005/04/discovery/ProbeMatches</wsa:Action>
+        <d:AppSequence SOAP-ENV:mustUnderstand="true" MessageNumber="${messageNo}" InstanceId="1234567890"/>
+    </SOAP-ENV:Header>
+    <SOAP-ENV:Body>
+        <d:ProbeMatches>
+            <d:ProbeMatch>
+                <wsa:EndpointReference>
+                    <wsa:Address>urn:uuid:${this.config.uuid}</wsa:Address>
+                </wsa:EndpointReference>
+                <d:Types>dn:NetworkVideoTransmitter</d:Types>
+                <d:Scopes>
+                    onvif://www.onvif.org/type/video_encoder
+                    onvif://www.onvif.org/type/ptz
+                    onvif://www.onvif.org/hardware/Onvif
+                    onvif://www.onvif.org/name/Cardinal
+                    onvif://www.onvif.org/location/
+                </d:Scopes>
+                <d:XAddrs>http://${this.config.hostname}:${this.config.ports.server}/onvif/device_service</d:XAddrs>
+                <d:MetadataVersion>1</d:MetadataVersion>
+            </d:ProbeMatch>
+        </d:ProbeMatches>
+    </SOAP-ENV:Body>
+</SOAP-ENV:Envelope>`;
+    }
+
+    shutdown() {
+        return new Promise((resolve) => {
+            let closeCount = 0;
+            const totalToClose = 2; // server + discovery socket
+
+            const checkComplete = () => {
+                closeCount++;
+                if (closeCount >= totalToClose) {
+                    this.logger.info(`Shutdown complete for ${this.config.name}`);
+                    resolve();
+                }
+            };
+
+            // Close HTTP server
+            if (this.server) {
+                this.server.close((err) => {
+                    if (err) {
+                        this.logger.error('Error closing HTTP server: ' + err.message);
+                    }
+                    checkComplete();
+                });
+            } else {
+                checkComplete();
+            }
+
+            // Close discovery socket
+            if (this.discoverySocket) {
+                try {
+                    this.discoverySocket.close(() => {
+                        checkComplete();
+                    });
+                } catch (err) {
+                    this.logger.error('Error closing discovery socket: ' + err.message);
+                    checkComplete();
+                }
+            } else {
+                checkComplete();
+            }
+
+            // Clear cached snapshot
+            this.snapshotCache = null;
+        });
     }
 };
 
