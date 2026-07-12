@@ -98,6 +98,14 @@ if (args) {
                 logger.info('  Started!');
                 logger.info('');
 
+                if (onvifConfig.ptz) {
+                    server.startPtz().then((token) => {
+                        logger.info(`PTZ passthrough enabled for ${onvifConfig.name} (camera profile: ${token})`);
+                    }).catch((err) => {
+                        logger.error(`PTZ setup failed for ${onvifConfig.name}: ${err.message || err}`);
+                    });
+                }
+
                 if (!proxies[onvifConfig.target.hostname])
                     proxies[onvifConfig.target.hostname] = {}
                 

@@ -114,6 +114,35 @@ onvif:
 
 The above configuration creates a virtual Onvif device that listens on port 8081 of the `a2:a2:a2:a2:a2:a1` virtual network and forwards the RTSP video streams and snapshots from `192.168.1.152` (the real Onvif server).
 
+## Audio (optional)
+If the RTSP stream of the real camera contains an audio track, you can advertise it in the virtual device's Onvif profiles by adding an `audio:` key to the camera entry (the audio bytes themselves already flow through the RTSP proxy unchanged):
+
+```yaml
+    audio: true
+```
+
+By default the audio track is advertised as AAC at 64 kbps / 16 kHz. If your camera uses different settings, they can be specified explicitly:
+
+```yaml
+    audio:
+      encoding: AAC
+      bitrate: 64
+      samplerate: 16
+```
+
+## PTZ Passthrough (optional)
+If the real camera supports PTZ, adding a `ptz:` key (as a sibling of `target`) makes the virtual device advertise a PTZ service and transparently relay PTZ requests to the real camera:
+
+```yaml
+    ptz:
+      port: 8000               # Onvif port of the real camera
+      username: <camera user>  # only used once at startup to discover the camera's PTZ profile
+      password: <camera pass>
+      # profileToken: '001'    # optional: override which camera profile to use for PTZ
+```
+
+At startup the server looks up the camera's PTZ-capable media profile and embeds its PTZ configuration into the virtual profiles. Incoming PTZ requests are relayed to the real camera unchanged (only the profile token is rewritten), so the client's own credentials are used to authenticate against the camera — the virtual server does not store them.
+
 ## Start Virtual Onvif Servers
 Finally, to start the virtual Onvif devices run:
 ```bash
