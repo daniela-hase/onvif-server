@@ -167,7 +167,7 @@ onvif:
     ports:
       server: 8081                                # The port for the server to run on
       rtsp: 8554                                  # The port for the stream passthrough, leave this at 8554
-    name: MyRTSPStream                            # A user define name
+    name: MyRTSPStream                            # A user define name, advertised in WS-Discovery
     uuid: 1714a629-ebe5-4bb8-a430-c18ffd8fa5f6    # A randomly chosen UUID (see below)
     highQuality:
       rtsp: /cam/stream                           # The RTSP Path
