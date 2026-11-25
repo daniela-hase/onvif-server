@@ -189,6 +189,15 @@ onvif:
         rtsp: 554                                 # The Port of the RTSP stream
 ```
 
+By default every virtual device reports itself as an "Onvif Cardinal" camera. To tell several of them apart in a client that names cameras after their make and model, add `manufacturer` and `model` next to `name`:
+
+```yaml
+    manufacturer: Acme                            # Defaults to Onvif
+    model: Lobby Camera                           # Defaults to Cardinal
+```
+
+`GetDeviceInformation` returns them, and WS-Discovery advertises the model as `onvif://www.onvif.org/hardware/<model>`.
+
 You can either randomly change a few numbers of the UUID, or use a UUIDv4 generator[^3].
 
 If you have a separate low-quality RTSP stream available, fill in the information for the `lowQuality` section above. Otherwise just copy the `highQualtiy` settings.

@@ -269,8 +269,8 @@ class OnvifServer {
                 
                     GetDeviceInformation: (args) => {
                         return {
-                            Manufacturer: 'Onvif',
-                            Model: 'Cardinal',
+                            Manufacturer: this.getManufacturer(),
+                            Model: this.getModel(),
                             FirmwareVersion: '1.0.0',
                             SerialNumber: `${this.config.name.replace(' ', '_')}-0000`,
                             HardwareId: `${this.config.name.replace(' ', '_')}-1001`
@@ -418,7 +418,7 @@ class OnvifServer {
                                         <d:Scopes>
                                             onvif://www.onvif.org/type/video_encoder
                                             onvif://www.onvif.org/type/ptz
-                                            onvif://www.onvif.org/hardware/Onvif
+                                            onvif://www.onvif.org/hardware/${encodeURIComponent(this.getModel())}
                                             onvif://www.onvif.org/name/${encodeURIComponent(this.config.name)}
                                             onvif://www.onvif.org/location/
                                         </d:Scopes>
@@ -443,6 +443,14 @@ class OnvifServer {
 
     getHostname() {
         return this.config.hostname;
+    }
+
+    getManufacturer() {
+        return this.config.manufacturer || 'Onvif';
+    }
+
+    getModel() {
+        return this.config.model || 'Cardinal';
     }
 };
 
